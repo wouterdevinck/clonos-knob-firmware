@@ -1,42 +1,99 @@
-#include "freertos/FreeRTOS.h"
-#include "esp_wifi.h"
-#include "esp_system.h"
-#include "esp_event.h"
-#include "esp_event_loop.h"
-#include "nvs_flash.h"
-#include "driver/gpio.h"
+/* Created 19 Nov 2016 by Chris Osborn <fozztexx@fozztexx.com>
+ * http://insentricity.com
+ *
+ * Demo of driving WS2812 RGB LEDs using the RMT peripheral.
+ *
+ * This code is placed in the public domain (or CC0 licensed, at your option).
+ */
 
-esp_err_t event_handler(void *ctx, system_event_t *event)
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <soc/rmt_struct.h>
+#include <esp_system.h>
+#include <nvs_flash.h>
+#include <driver/gpio.h>
+#include <stdio.h>
+#include "ws2812.h"
+
+#define WS2812_PIN	18
+
+#define delay_ms(ms) vTaskDelay((ms) / portTICK_RATE_MS)
+
+void rainbow(void *pvParameters)
 {
-    return ESP_OK;
-}
+  //const uint8_t dim_div = 8;
+  //const uint8_t anim_step = 8;
+  //const uint8_t anim_max = 256 - anim_step;
+  const uint16_t pixel_count = 20; // Number of your "pixels"
+  //const uint8_t delay = 10; // duration between color changes
+  //rgbVal color = makeRGBVal(anim_max, 0, 0);
+  //uint8_t step = 0;
+  //rgbVal color2 = makeRGBVal(anim_max, 0, 0);
+  //uint8_t step2 = 0;
+  rgbVal *pixels;
 
-void app_main(void)
-{
-    nvs_flash_init();
-    tcpip_adapter_init();
-    ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-    ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
-    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-    wifi_config_t sta_config = {
-        .sta = {
-            .ssid = "access_point_name",
-            .password = "password",
-            .bssid_set = false
-        }
-    };
-    ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &sta_config) );
-    ESP_ERROR_CHECK( esp_wifi_start() );
-    ESP_ERROR_CHECK( esp_wifi_connect() );
+  pixels = malloc(sizeof(rgbVal) * pixel_count);
 
-    gpio_set_direction(GPIO_NUM_4, GPIO_MODE_OUTPUT);
-    int level = 0;
-    while (true) {
-        gpio_set_level(GPIO_NUM_4, level);
-        level = !level;
-        vTaskDelay(300 / portTICK_PERIOD_MS);
+  //while (1) {
+    //color = color2;
+    //step = step2;
+
+    for (uint16_t i = 0; i < pixel_count; i++) {
+      pixels[i] = makeRGBVal(10, 0, 0);//makeRGBVal(color.r/dim_div, color.g/dim_div, color.b/dim_div);
+
+/*
+      if (i == 1) {
+        color2 = color;
+        step2 = step;
+      }
+
+      switch (step) {
+      case 0:
+        color.g += anim_step;
+        if (color.g >= anim_max)
+          step++;
+        break;
+      case 1:
+        color.r -= anim_step;
+        if (color.r == 0)
+          step++;
+        break;
+      case 2:
+        color.b += anim_step;
+        if (color.b >= anim_max)
+          step++;
+        break;
+      case 3:
+        color.g -= anim_step;
+        if (color.g == 0)
+          step++;
+        break;
+      case 4:
+        color.r += anim_step;
+        if (color.r >= anim_max)
+          step++;
+        break;
+      case 5:
+        color.b -= anim_step;
+        if (color.b == 0)
+          step = 0;
+        break;
+      }
+*/
     }
+
+    ws2812_setColors(pixel_count, pixels);
+
+//    delay_ms(delay);
+  //}
 }
 
+void app_main()
+{
+  nvs_flash_init();
+
+  ws2812_init(WS2812_PIN);
+  xTaskCreate(rainbow, "ws2812 rainbow demo", 4096, NULL, 10, NULL);
+
+  return;
+}
